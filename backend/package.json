@@ -1,0 +1,15 @@
+{
+  "name": "google-cast-launcher",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "chrome-remote-interface": "0.27.1",
+    "puppeteer-core": "1.15.0"
+  }
+}

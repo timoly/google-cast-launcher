@@ -1,0 +1,4 @@
+module.exports = {
+  targetSink: "",
+  chromePath: ""
+}
