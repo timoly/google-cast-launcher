@@ -1,15 +1,29 @@
 const CDP = require('chrome-remote-interface')
 const puppeteer = require("puppeteer-core")
-const {targetSink, chromePath} = require("./config")
+const env = (() => {
+  const arg = process.argv[2]
+  switch(arg){
+    case "pi":
+    case "mac":
+      return arg
+    default:
+      throw new Error("invalid/missing env argument")
+  }
+})()
+const config = require("./config")[env]
+const {targetSink, chromePath, userDataDir} = config
 
-async function serviceHandler(page, type){
+async function serviceHandler(page, type, Cast){
   switch(type){
     case "ruutu":
       const ruutu = require("./ruutu")
       return ruutu(page)
     case "youtube":
-      const youtube  = require("./youtube")
+      const youtube = require("./youtube")
       return youtube(page)
+    case "viaplay":
+      const viaplay = require("./viaplay")
+      return viaplay(page, Cast, config.viaplayUsername, config.viaplayPassword)
     default: 
       throw new Error(`unsupported ${type}`)
   }
@@ -23,8 +37,12 @@ async function cast({url, type}){
       args: [
         "--remote-debugging-port=9222",
         "--no-first-run",
-        "--mute-audio"
+        "--mute-audio",
+        "--flag-switches-begin",
+        "--load-media-router-component-extension=1",
+        "--flag-switches-end"
       ],
+      userDataDir,
       ignoreDefaultArgs: true
     })
     const page = await browser.newPage()
@@ -59,7 +77,11 @@ async function cast({url, type}){
           castingStarted = true
           await Cast.setSinkToUse({sinkName})
           await page.goto(url)
-          await serviceHandler(page, type)
+          try{
+            await serviceHandler(page, type, Cast)
+          }catch(error){
+            reject(error)
+          }
           resolve()
         }
       })
@@ -70,6 +92,7 @@ async function cast({url, type}){
     console.error(error)
   }
 }
-cast({url: "https://www.ruutu.fi/video/3257790", type: "ruutu"})
+// cast({url: "https://www.ruutu.fi/video/3257790", type: "ruutu"})
 // cast({url: "https://www.youtube.com/watch?v=LOUgsAmD51s", type: "youtube"})
+cast({url: "https://viaplay.fi/kanavat", type: "viaplay"})
  
