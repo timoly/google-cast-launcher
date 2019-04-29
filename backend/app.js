@@ -10,42 +10,55 @@ const env = (() => {
       throw new Error("invalid/missing env argument")
   }
 })()
-const config = require("./config")[env]
-const {targetSink, chromePath, userDataDir} = config
+const config = require("./config")
+const envConfig = config[env]
+const {targetSink, chromePath, userDataDir} = envConfig
 
-async function serviceHandler(page, type, Cast){
+async function serviceHandler(page, Cast, type, serviceParameters){
   switch(type){
     case "ruutu":
       const ruutu = require("./ruutu")
-      return ruutu(page)
+      return ruutu(page, serviceParameters.url)
     case "youtube":
       const youtube = require("./youtube")
-      return youtube(page)
+      return youtube(page, serviceParameters.url)
     case "viaplay":
       const viaplay = require("./viaplay")
-      return viaplay(page, Cast, config.viaplayUsername, config.viaplayPassword)
+      return viaplay({
+        ...serviceParameters,
+        page, 
+        Cast, 
+        sinkName: targetSink
+      })
     default: 
       throw new Error(`unsupported ${type}`)
   }
 }
 
-async function cast({url, type}){
+async function cast(type, serviceParameters){
   try{
     const browser = await puppeteer.launch({
       headless: false, 
       executablePath: chromePath,
+      defaultViewport: {
+        width: 1280,
+        height: 1024
+      },
+      ignoreHTTPSErrors: true,
       args: [
         "--remote-debugging-port=9222",
         "--no-first-run",
         "--mute-audio",
         "--flag-switches-begin",
         "--load-media-router-component-extension=1",
-        "--flag-switches-end"
+        "--flag-switches-end",
+        '--disk-cache-dir=./',
       ],
       userDataDir,
       ignoreDefaultArgs: true
     })
     const page = await browser.newPage()
+    page.on('console', consoleObj => console.log(consoleObj.text()))
     const list = await CDP.List()
     const tab = list.find(i => i.url === "about:blank" && i.type === "page")
     if(!tab){
@@ -76,9 +89,8 @@ async function cast({url, type}){
         if(sinkName){
           castingStarted = true
           await Cast.setSinkToUse({sinkName})
-          await page.goto(url)
           try{
-            await serviceHandler(page, type, Cast)
+            await serviceHandler(page, Cast, type, serviceParameters)
           }catch(error){
             reject(error)
           }
@@ -92,7 +104,11 @@ async function cast({url, type}){
     console.error(error)
   }
 }
-// cast({url: "https://www.ruutu.fi/video/3257790", type: "ruutu"})
-// cast({url: "https://www.youtube.com/watch?v=LOUgsAmD51s", type: "youtube"})
-cast({url: "https://viaplay.fi/kanavat", type: "viaplay"})
+// cast("ruutu", {url: "https://www.ruutu.fi/video/3257790"})
+// cast("youtube", {url: "https://www.youtube.com/watch?v=LOUgsAmD51s"})
+cast("viaplay", {
+  channel: "CNN International",
+  username: config.viaplayUsername,
+  password: config.viaplayPassword
+})
  

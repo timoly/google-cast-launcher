@@ -1,6 +1,7 @@
-module.exports = async function(page) {
+module.exports = async function(page, url) {
   const playButton = '.ytp-play-button'
   const castButton = 'button[aria-label="Play on TV"'
+  await page.goto(url)
   await page.waitForSelector(playButton, {visible: true})
   await page.click(playButton)
   await page.waitForSelector(castButton, {visible: true, timeout: 1000})

@@ -1,7 +1,9 @@
-module.exports = async function(page) {
+module.exports = async function(page, url) {
   const castButton = ".r-chromecast-button"
   const pauseButton = ".r-pause-button"
   const bannerSelector = '#sccm-opt-out-c1'
+
+  await page.goto(url)
   
   if(await page.$(bannerSelector) !== null){
     await page.click(bannerSelector)
