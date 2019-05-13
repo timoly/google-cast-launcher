@@ -1,4 +1,4 @@
 node_modules/
-backend/config.js
+backend/src/config.ts
 *.swp
 npm-debug.log
