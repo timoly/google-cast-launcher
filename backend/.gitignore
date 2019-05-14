@@ -1,4 +1,4 @@
-lib/
+build/
 coverage/
 node_modules/
 Default/

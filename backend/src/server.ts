@@ -82,6 +82,7 @@ async function cast (type: Type, serviceParameters: any) {
     if (!tab) {
       throw new Error('could not activate tab control')
     }
+
     const client = await CDP({ target: tab.id })
     await CDP.Activate({ id: tab.id })
     const { Cast } = client
