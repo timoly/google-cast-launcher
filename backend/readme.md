@@ -14,6 +14,14 @@ sudo apt-get install nodejs npm git xvfb snapd --yes
 sudo snap install core 
 sudo snap install chromium 
 
+sudo npm install -g npm
+sudo apt-get remove npm
+sudo npm install pm2@latest -g
+pm2 startup
+
+pm2 save
+
+
 git clone https://github.com/timoly/google-cast-launcher.git
 npm install
 

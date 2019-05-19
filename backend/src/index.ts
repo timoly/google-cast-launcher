@@ -9,7 +9,7 @@ const start = async () => {
   })
 
   try {
-    await fastify.listen(port)
+    await fastify.listen(port, '0.0.0.0')
     fastify.log.info(`server started on port ${port}`)
   } catch (err) {
     fastify.log.error(err)

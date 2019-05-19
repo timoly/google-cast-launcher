@@ -1,0 +1,4 @@
+*
+!build/**
+.env
+service_cookies.json

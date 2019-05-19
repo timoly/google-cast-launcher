@@ -2,19 +2,22 @@
   "name": "google-cast-launcher",
   "version": "0.0.1",
   "description": "google-cast-launcher",
+  "main": "build/index.js",
   "scripts": {
     "build": "tsc --project tsconfig.json",
-    "build:watch": "npm run build -- --watch",
+    "build:watch": "npm run build -- --watch --preserveWatchOutput",
     "clean": "npm run clean:build",
     "clean:build": "rimraf build/",
     "dev": "concurrently \"npm run build:watch\" \"npm run start:watch\"",
     "lint": "eslint '{src,tests}/**/*.ts'",
     "start": "node build/index.js",
-    "start:watch": "nodemon build/index.js --log"
+    "start:watch": "nodemon build/index.js"
   },
   "author": "Timo Lyytinen",
   "license": "MIT",
   "devDependencies": {
+    "@types/dotenv": "6.1.1",
+    "@types/lowdb": "1.0.9",
     "@types/node": "12.0.1",
     "@types/puppeteer-core": "1.9.0",
     "@types/yargs-parser": "13.0.0",
@@ -30,7 +33,9 @@
   },
   "dependencies": {
     "chrome-remote-interface": "0.27.1",
-    "puppeteer-core": "1.16.0",
-    "fastify": "2.3.0"
+    "dotenv": "8.0.0",
+    "fastify": "2.3.0",
+    "lowdb": "1.0.0",
+    "puppeteer-core": "1.16.0"
   }
 }

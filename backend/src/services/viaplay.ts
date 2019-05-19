@@ -1,4 +1,6 @@
 import { Page } from 'puppeteer'
+import { LowdbSync } from 'lowdb'
+import { ServiceType } from '../services'
 
 export const channelMapping = [
   'YLE 1',
@@ -29,21 +31,28 @@ interface Viaplay {
   password: string
   sinkName: string
   channel: string
+  db: LowdbSync<any>
+  type: ServiceType
 }
 
-export const viaplay = async function ({
+export const start = async function ({
   page,
   Cast,
   username,
   password,
   sinkName,
-  channel
+  channel,
+  db,
+  type
 }: Viaplay) {
   const channelIndex = channelMapping.findIndex(ch => ch === channel)
   if (channelIndex === -1) {
-    throw new Error(`${channel} is not supported`)
+    throw new Error(`channel ${channel} is not supported`)
   }
-
+  const initialCookies = await db.get(type).value()
+  if (initialCookies) {
+    await page.setCookie(...initialCookies)
+  }
   await page.goto('https://viaplay.fi/kanavat')
 
   if (
@@ -53,14 +62,16 @@ export const viaplay = async function ({
     const loginBtn = '.Navigation-right-1Ki5u'
     await page.waitForSelector(loginBtn, { visible: true })
     await page.click(loginBtn)
-    const usernameEl = 'input.username'
+    const usernameEl = 'input[name="username"]'
     await page.waitForSelector(usernameEl, { visible: true })
     await page.type(usernameEl, username)
-    await page.type('input.password', password)
+    await page.type('input[name="password"]', password)
     await page.click('input[type="submit"]')
+    await page.waitForNavigation({ waitUntil: 'networkidle0' })
   }
 
-  await page.waitFor(() => !document.querySelector('.litebox.login-required'))
+  const cookies = await page.cookies()
+  db.set(type, cookies).write()
 
   const carouselEl = '.Carousel-inner-gyO8I'
   await page.waitForSelector(carouselEl, { visible: true })

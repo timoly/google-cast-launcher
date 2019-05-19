@@ -1,36 +1,38 @@
 import * as Fastify from 'fastify'
 import * as CDP from 'chrome-remote-interface'
 import * as puppeteer from 'puppeteer-core'
+import { services, ServiceType } from './services'
+import * as dotenv from 'dotenv'
+dotenv.config()
 
-const env = (() => {
-  const arg = process.argv[2]
-  switch (arg) {
-    case 'pi':
-    case 'mac':
-      return arg
-    default:
-      return 'mac'
-  }
-})()
-import { config } from './config'
-const envConfig = config[env]
-const { targetSink, chromePath, userDataDir } = envConfig
+import * as low from 'lowdb'
+import * as FileSync from 'lowdb/adapters/FileSync'
 
-import { ruutu } from './services/ruutu'
-import { youtube } from './services/youtube'
-import { viaplay, channelMapping } from './services/viaplay'
+const adapter = new FileSync('service_cookies.json')
+const db = low(adapter)
 
-const services = {
-  ruutu,
-  viaplay,
-  youtube
+const {
+  TARGET_SINK,
+  CHROME_PATH,
+  USER_DATA_DIR,
+  VIAPLAY_USERNAME,
+  VIAPLAY_PASSWORD
+} = process.env
+if (
+  !TARGET_SINK ||
+  !CHROME_PATH ||
+  !USER_DATA_DIR ||
+  !VIAPLAY_USERNAME ||
+  !VIAPLAY_PASSWORD
+) {
+  console.error('not all required parameters are defined')
+  process.exit(1)
 }
-type Type = keyof typeof services
 
 async function serviceHandler (
   page: puppeteer.Page,
   Cast: any,
-  type: Type,
+  type: ServiceType,
   serviceParameters: any
 ) {
   switch (type) {
@@ -39,13 +41,15 @@ async function serviceHandler (
     case 'youtube':
       return services.youtube(page, serviceParameters.url)
     case 'viaplay':
-      return services.viaplay({
+      return services.viaplay.start({
         ...serviceParameters,
         page,
         Cast,
-        sinkName: targetSink,
-        username: config.viaplayUsername,
-        password: config.viaplayPassword
+        sinkName: TARGET_SINK,
+        username: VIAPLAY_USERNAME,
+        password: VIAPLAY_PASSWORD,
+        db,
+        type
       })
     default:
       throw new Error(`unsupported ${type}`)
@@ -53,11 +57,13 @@ async function serviceHandler (
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function cast (type: Type, serviceParameters: any) {
+async function cast (type: ServiceType, serviceParameters: any) {
+  let browser
+  let client
   try {
-    const browser = await puppeteer.launch({
+    browser = await puppeteer.launch({
       headless: false,
-      executablePath: chromePath,
+      executablePath: CHROME_PATH,
       defaultViewport: {
         width: 1280,
         height: 1024
@@ -72,10 +78,11 @@ async function cast (type: Type, serviceParameters: any) {
         '--flag-switches-end',
         '--disk-cache-dir=./'
       ],
-      userDataDir,
+      userDataDir: USER_DATA_DIR,
       ignoreDefaultArgs: true
     })
     const page = await browser.newPage()
+
     page.on('console', consoleObj => console.log(consoleObj.text()))
     const list = await CDP.List()
     const tab = list.find(i => i.url === 'about:blank' && i.type === 'page')
@@ -83,7 +90,7 @@ async function cast (type: Type, serviceParameters: any) {
       throw new Error('could not activate tab control')
     }
 
-    const client = await CDP({ target: tab.id })
+    client = await CDP({ target: tab.id })
     await CDP.Activate({ id: tab.id })
     const { Cast } = client
     await Cast.enable()
@@ -101,7 +108,7 @@ async function cast (type: Type, serviceParameters: any) {
           return
         }
         console.log('sinks:', sinks)
-        const sinkName = sinks.sinkNames.find(sink => sink === targetSink)
+        const sinkName = sinks.sinkNames.find(sink => sink === TARGET_SINK)
         if (!sinkName && count > 5) {
           return reject(new Error('requested sink not found'))
         }
@@ -111,15 +118,24 @@ async function cast (type: Type, serviceParameters: any) {
           try {
             await serviceHandler(page, Cast, type, serviceParameters)
           } catch (error) {
+            console.error('service handler error:', error)
             reject(error)
           }
           resolve()
         }
       })
     })
-    await Promise.all([client.close(), browser.close()])
   } catch (error) {
-    console.error(error)
+    console.error('cast error: ', error)
+    throw error
+  } finally {
+    console.log('cast clean up')
+    if (client) {
+      await client.close()
+    }
+    if (browser) {
+      await browser.close()
+    }
   }
 }
 
@@ -129,7 +145,7 @@ export function createServer (opts?: Fastify.ServerOptions) {
   fastify.get('/', async (_request, _reply) => {
     return {
       viaplay: {
-        channels: channelMapping
+        channels: services.viaplay.channelMapping
       }
     }
   })
@@ -144,8 +160,9 @@ export function createServer (opts?: Fastify.ServerOptions) {
       await cast(request.query.service, {
         channel: request.query.channel
       })
+      reply.status(200).send()
     } catch (error) {
-      console.error(error)
+      console.error('channel start error:', error)
       reply.status(500).send({ error })
     }
   })

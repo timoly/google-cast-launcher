@@ -1,4 +1,6 @@
 build/
 coverage/
 node_modules/
-Default/
+Default/**
+.env
+service_cookies.json
