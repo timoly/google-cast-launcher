@@ -3,7 +3,13 @@ import * as CDP from 'chrome-remote-interface'
 import * as puppeteer from 'puppeteer-core'
 import { services, ServiceType } from './services'
 import * as dotenv from 'dotenv'
-dotenv.config()
+import * as path from 'path'
+
+dotenv.config({
+  path: process.env.PI
+    ? path.resolve(process.cwd(), '../../', '.env')
+    : path.resolve(process.cwd(), '.env')
+})
 
 import * as low from 'lowdb'
 import * as FileSync from 'lowdb/adapters/FileSync'
@@ -11,23 +17,38 @@ import * as FileSync from 'lowdb/adapters/FileSync'
 const adapter = new FileSync('service_cookies.json')
 const db = low(adapter)
 
+const requiredEnvParameters = {
+  TARGET_SINK: null,
+  CHROME_PATH: null,
+  USER_DATA_DIR: null,
+  VIAPLAY_USERNAME: null,
+  VIAPLAY_PASSWORD: null
+}
+
+type EnvParametersKey = keyof typeof requiredEnvParameters
+type EnvParameters = { [key in EnvParametersKey]: string }
+
 const {
   TARGET_SINK,
   CHROME_PATH,
   USER_DATA_DIR,
   VIAPLAY_USERNAME,
   VIAPLAY_PASSWORD
-} = process.env
-if (
-  !TARGET_SINK ||
-  !CHROME_PATH ||
-  !USER_DATA_DIR ||
-  !VIAPLAY_USERNAME ||
-  !VIAPLAY_PASSWORD
-) {
-  console.error('not all required parameters are defined')
-  process.exit(1)
-}
+} = Object.keys(requiredEnvParameters).reduce(
+  (acc: EnvParameters, key) => {
+    const value = process.env[key]
+    if (!value) {
+      console.error(`missing required parameter ${key} is not defined`)
+      process.exit(1)
+    }
+    return {
+      ...acc,
+      [key]: value
+    }
+  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  requiredEnvParameters as any
+)
 
 async function serviceHandler (
   page: puppeteer.Page,

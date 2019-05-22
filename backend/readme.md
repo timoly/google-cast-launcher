@@ -16,13 +16,17 @@ sudo snap install chromium
 
 sudo npm install -g npm
 sudo apt-get remove npm
+mkdir google-cast-launcher
+npm install google-cast-launcher
+setup .env file
+
+# autorun at boot
 sudo npm install pm2@latest -g
 pm2 startup
-
+cd google-cast-launcher
+pm2 start node_modules/google-cast-launcher/pm2_process.config.js
 pm2 save
 
 
-git clone https://github.com/timoly/google-cast-launcher.git
-npm install
-
-xvfb-run -a --server-args="-screen 0 1280x1024x16 -ac -nolisten tcp" node app.js 
+#running manually in raspberry pi
+xvfb-run -a --server-args="-screen 0 1280x1024x16 -ac -nolisten tcp" node build/index.js

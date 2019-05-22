@@ -123,7 +123,7 @@ export const start = async function ({
           clearInterval(intervalId)
           resolve()
         }
-      })
+      }, 200)
 
       setTimeout(reject, 7500)
     })

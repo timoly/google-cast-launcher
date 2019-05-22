@@ -2,3 +2,4 @@
 !build/**
 .env
 service_cookies.json
+!pm2_process.config.js

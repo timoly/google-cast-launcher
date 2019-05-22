@@ -1,5 +1,6 @@
-import { createServer } from './server'
 console.log('starting...')
+import 'source-map-support/register'
+import { createServer } from './server'
 
 const port: number = parseInt(JSON.stringify(process.env.PORT), 10) || 3000
 

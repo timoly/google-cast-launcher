@@ -1,4 +1,5 @@
 # google cast launcher  (proof of concept)
+- repository: https://github.com/timoly/google-cast-launcher.git
 
 - Node backend that can be used to start casting to a selected chromecast device without user interaction.
 - ios and amazon alexa client applications to be implemented
