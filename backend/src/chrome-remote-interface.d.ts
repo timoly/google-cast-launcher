@@ -7,27 +7,6 @@
 declare module 'chrome-remote-interface' {
   type Callback = (...args: any[]) => void
 
-  interface Sink {
-    sinkNames: string[]
-  }
-
-  interface Cast {
-    enable(): Promise<void>
-    issueUpdated(cb: (msg: string) => void): void
-    sinksUpdated(cb: (sinks: Sink) => void): void
-    setSinkToUse(params: { sinkName: string }): void
-  }
-
-  interface Client {
-    Cast: Cast
-    close: () => Promise<void>
-  }
-
-  function CDP (
-    options?: ChromeRemoteInterfaceOptions | Callback,
-    callback?: Callback
-  ): Promise<Client>
-
   namespace CDP {
     function Activate (
       options: TargetOptions,
@@ -62,8 +41,30 @@ declare module 'chrome-remote-interface' {
       callback: (err: Error, browserVersion: VersionResult) => void
     ): VersionResult
     function Version (options?: VersionOptions): Promise<VersionResult>
+
+    interface Sink {
+      sinkNames: string[]
+    }
+
+    interface Cast {
+      enable(): Promise<void>
+      issueUpdated(cb: (msg: string) => void): void
+      sinksUpdated(cb: (sinks: Sink) => void): void
+      setSinkToUse(params: { sinkName: string }): void
+      startTabMirroring(params: { sinkName: string }): void
+    }
+
+    interface Client {
+      Cast: Cast
+      close: () => Promise<void>
+    }
   }
   export = CDP
+
+  function CDP (
+    options?: ChromeRemoteInterfaceOptions | Callback,
+    callback?: Callback
+  ): Promise<CDP.Client>
 
   type TargetFn = (targets: Target[]) => Target
 

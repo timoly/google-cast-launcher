@@ -12,7 +12,7 @@ module.exports = {
       name: 'Xvfb',
       interpreter: 'none',
       script: 'Xvfb',
-      args: ':99 -s "-screen 0 1280x1024x16 -ac -nolisten tcp"'
+      args: ':99 -s "-screen 0 1280x1024x8 -ac -nolisten tcp"'
     }
   ]
 }

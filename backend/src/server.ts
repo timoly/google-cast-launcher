@@ -1,7 +1,7 @@
 import * as Fastify from 'fastify'
 import * as CDP from 'chrome-remote-interface'
 import * as puppeteer from 'puppeteer-core'
-import { services, ServiceType } from './services'
+import { services, ServiceType, CommonServiceParameters } from './services'
 import * as dotenv from 'dotenv'
 import * as path from 'path'
 
@@ -13,6 +13,9 @@ dotenv.config({
 
 import * as low from 'lowdb'
 import * as FileSync from 'lowdb/adapters/FileSync'
+import { ViaplayChannel, ViaplayServiceParameters } from './services/viaplay'
+import { RuutuServiceParameters } from './services/ruutu'
+import { YoutubeServiceParameters } from './services/youtube'
 
 const adapter = new FileSync('service_cookies.json')
 const db = low(adapter)
@@ -27,6 +30,11 @@ const requiredEnvParameters = {
 
 type EnvParametersKey = keyof typeof requiredEnvParameters
 type EnvParameters = { [key in EnvParametersKey]: string }
+
+type ServiceParameters =
+  | ViaplayServiceParameters
+  | RuutuServiceParameters
+  | YoutubeServiceParameters
 
 const {
   TARGET_SINK,
@@ -51,34 +59,33 @@ const {
 )
 
 async function serviceHandler (
-  page: puppeteer.Page,
-  Cast: any,
-  type: ServiceType,
-  serviceParameters: any
+  commonServiceParameters: CommonServiceParameters,
+  serviceParameters: ServiceParameters
 ) {
-  switch (type) {
+  switch (serviceParameters.type) {
     case 'ruutu':
-      return services.ruutu(page, serviceParameters.url)
+      return services.ruutu.start({
+        ...commonServiceParameters,
+        ...serviceParameters
+      })
     case 'youtube':
-      return services.youtube(page, serviceParameters.url)
+      return services.youtube.start({
+        ...commonServiceParameters,
+        ...serviceParameters
+      })
     case 'viaplay':
       return services.viaplay.start({
-        ...serviceParameters,
-        page,
-        Cast,
-        sinkName: TARGET_SINK,
-        username: VIAPLAY_USERNAME,
-        password: VIAPLAY_PASSWORD,
-        db,
-        type
+        ...commonServiceParameters,
+        ...serviceParameters
       })
-    default:
-      throw new Error(`unsupported ${type}`)
   }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function cast (type: ServiceType, serviceParameters: any) {
+async function cast (
+  serviceParameters: ServiceParameters,
+  log: Fastify.Logger
+) {
   let browser
   let client
   try {
@@ -97,14 +104,15 @@ async function cast (type: ServiceType, serviceParameters: any) {
         '--flag-switches-begin',
         '--load-media-router-component-extension=1',
         '--flag-switches-end',
-        '--disk-cache-dir=./'
+        '--disk-cache-dir=./',
+        '--allow-running-insecure-content'
       ],
       userDataDir: USER_DATA_DIR,
       ignoreDefaultArgs: true
     })
     const page = await browser.newPage()
 
-    page.on('console', consoleObj => console.log(consoleObj.text()))
+    page.on('console', consoleObj => log.info(consoleObj.text()))
     const list = await CDP.List()
     const tab = list.find(i => i.url === 'about:blank' && i.type === 'page')
     if (!tab) {
@@ -112,6 +120,8 @@ async function cast (type: ServiceType, serviceParameters: any) {
     }
 
     client = await CDP({ target: tab.id })
+
+    CDP.Activate
     await CDP.Activate({ id: tab.id })
     const { Cast } = client
     await Cast.enable()
@@ -121,14 +131,14 @@ async function cast (type: ServiceType, serviceParameters: any) {
       let castingStarted = false
 
       Cast.issueUpdated(msg => {
-        console.log('cast issue:', msg)
+        log.info('cast issue:', msg)
       })
 
       Cast.sinksUpdated(async sinks => {
         if (castingStarted) {
           return
         }
-        console.log('sinks:', sinks)
+        log.info('sinks:', sinks)
         const sinkName = sinks.sinkNames.find(sink => sink === TARGET_SINK)
         if (!sinkName && count > 5) {
           return reject(new Error('requested sink not found'))
@@ -137,9 +147,18 @@ async function cast (type: ServiceType, serviceParameters: any) {
           castingStarted = true
           await Cast.setSinkToUse({ sinkName })
           try {
-            await serviceHandler(page, Cast, type, serviceParameters)
+            await serviceHandler(
+              {
+                page,
+                Cast,
+                sinkName: TARGET_SINK,
+                db,
+                log,
+                type: serviceParameters.type
+              },
+              serviceParameters
+            )
           } catch (error) {
-            console.error('service handler error:', error)
             reject(error)
           }
           resolve()
@@ -147,10 +166,9 @@ async function cast (type: ServiceType, serviceParameters: any) {
       })
     })
   } catch (error) {
-    console.error('cast error: ', error)
     throw error
   } finally {
-    console.log('cast clean up')
+    log.info('cast clean up')
     if (client) {
       await client.close()
     }
@@ -166,25 +184,65 @@ export function createServer (opts?: Fastify.ServerOptions) {
   fastify.get('/', async (_request, _reply) => {
     return {
       viaplay: {
-        channels: services.viaplay.channelMapping
+        channels: services.viaplay.channels
       }
     }
   })
 
   /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
   fastify.post('/', async (request, reply) => {
-    console.log(request.query)
+    fastify.log.info(request.query)
     // cast("ruutu", {url: "https://www.ruutu.fi/video/3257790"})
     // cast("youtube", {url: "https://www.youtube.com/watch?v=LOUgsAmD51s"})
     // 'CNN International'
     try {
-      await cast(request.query.service, {
-        channel: request.query.channel
-      })
+      const service = ((): ServiceType | null => {
+        switch (request.query.service) {
+          case 'ruutu':
+          case 'youtube':
+          case 'viaplay':
+            return request.query.service
+          default:
+            return null
+        }
+      })()
+
+      if (!service) {
+        return reply
+          .status(400)
+          .send({ error: `unsupported service: ${request.query.service}` })
+      }
+
+      const serviceParameters = ((): ServiceParameters => {
+        switch (service) {
+          case 'viaplay':
+            return ((): ViaplayServiceParameters => {
+              const channel = services.viaplay.channels.some(
+                channel => request.query.channel === channel
+              )
+              if (!channel) {
+                throw new Error(`unsupported channel: ${request.query.channel}`)
+              }
+              return {
+                channel: request.query.channel as ViaplayChannel,
+                username: VIAPLAY_USERNAME,
+                password: VIAPLAY_PASSWORD,
+                type: 'viaplay'
+              }
+            })()
+
+          case 'ruutu':
+            return { type: service, url: request.query.url as string }
+          case 'youtube':
+            return { type: service, url: request.query.url as string }
+        }
+      })()
+
+      await cast(serviceParameters, fastify.log)
       reply.status(200).send()
     } catch (error) {
-      console.error('channel start error:', error)
-      reply.status(500).send({ error })
+      fastify.log.error(error, 'channel start error')
+      reply.status(500).send({ error: error.message })
     }
   })
 

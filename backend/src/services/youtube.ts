@@ -1,6 +1,14 @@
-import { Page } from 'puppeteer'
+import { CommonServiceParameters } from '../services'
 
-export const youtube = async function (page: Page, url: string) {
+export interface YoutubeServiceParameters {
+  url: string
+  type: 'youtube'
+}
+
+export const start = async function ({
+  page,
+  url
+}: CommonServiceParameters & YoutubeServiceParameters) {
   const playButton = '.ytp-play-button'
   const castButton = 'button[aria-label="Play on TV"'
   await page.goto(url)

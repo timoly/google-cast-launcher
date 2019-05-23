@@ -1,38 +1,33 @@
-import { Page } from 'puppeteer'
-import { LowdbSync } from 'lowdb'
-import { ServiceType } from '../services'
+import { CommonServiceParameters } from '../services'
 
-export const channelMapping = [
-  'YLE 1',
-  'YLE 2',
-  'Yle Teema/Fem',
-  'Fox',
-  'National Geographic',
-  'Nat Geo Wild',
-  'Viasat Explorer',
-  'Viasat Nature',
-  'Viasat History',
-  'BBC World News',
-  'CNN International',
-  'Euronews',
-  'Boomerang Nordic',
-  'Nick Jr Scandinavia',
-  'Cartoon Network',
-  'Music Television HD',
-  'MTV Hits',
-  'VH1 Europe'
-]
+const channelMapping = {
+  'YLE 1': {},
+  'YLE 2': {},
+  'Yle Teema/Fem': {},
+  Fox: {},
+  'National Geographic': {},
+  'Nat Geo Wild': {},
+  'Viasat Explorer': {},
+  'Viasat Nature': {},
+  'Viasat History': {},
+  'BBC World News': {},
+  'CNN International': {},
+  Euronews: {},
+  'Boomerang Nordic': {},
+  'Nick Jr Scandinavia': {},
+  'Cartoon Network': {},
+  'Music Television HD': {},
+  'MTV Hits': {},
+  'VH1 Europe': {}
+}
 
-interface Viaplay {
-  page: Page
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  Cast: any
+export type ViaplayChannel = keyof typeof channelMapping
+export const channels = Object.keys(channelMapping) as ViaplayChannel[]
+export interface ViaplayServiceParameters {
+  type: 'viaplay'
+  channel: ViaplayChannel
   username: string
   password: string
-  sinkName: string
-  channel: string
-  db: LowdbSync<any>
-  type: ServiceType
 }
 
 export const start = async function ({
@@ -43,9 +38,10 @@ export const start = async function ({
   sinkName,
   channel,
   db,
-  type
-}: Viaplay) {
-  const channelIndex = channelMapping.findIndex(ch => ch === channel)
+  type,
+  log
+}: ViaplayServiceParameters & CommonServiceParameters) {
+  const channelIndex = channels.findIndex(ch => ch === channel)
   if (channelIndex === -1) {
     throw new Error(`channel ${channel} is not supported`)
   }
@@ -56,12 +52,26 @@ export const start = async function ({
   await page.goto('https://viaplay.fi/kanavat')
 
   if (
+    (await page.$('div[data-testhook="content-transition-spinner"')) !== null
+  ) {
+    log.info('clearing cookies and reloading...')
+    await page.deleteCookie(...initialCookies)
+    db.set(type, null).write()
+    await page.reload()
+  }
+
+  if (
     (await page.$('button[data-testhook="header-authenticated-username"')) ===
     null
   ) {
+    log.info('logging in to viaplay')
     const loginBtn = '.Navigation-right-1Ki5u'
     await page.waitForSelector(loginBtn, { visible: true })
     await page.click(loginBtn)
+    await new Promise(resolve => {
+      setTimeout(resolve, 1000)
+    })
+    await page.screenshot({ path: './login.png' })
     const usernameEl = 'input[name="username"]'
     await page.waitForSelector(usernameEl, { visible: true })
     await page.type(usernameEl, username)
@@ -91,11 +101,12 @@ export const start = async function ({
 
         setTimeout(() => {
           clearInterval(intervalId)
+          page.screenshot({ path: './channels.png' })
           reject(new Error('unable to load full channel list'))
         }, 5000)
       })
     },
-    { el: carouselEl, channelCount: channelMapping.length }
+    { el: carouselEl, channelCount: channels.length }
   )
 
   await page.evaluate(
@@ -106,7 +117,10 @@ export const start = async function ({
     },
     { el: carouselEl, channelIndex }
   )
-
+  await new Promise(resolve => {
+    setTimeout(resolve, 1000)
+  })
+  await page.screenshot({ path: './video.png' })
   await page.waitForSelector('video', { visible: true })
 
   await Cast.startTabMirroring({ sinkName })
