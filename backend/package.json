@@ -1,6 +1,6 @@
 {
   "name": "google-cast-launcher",
-  "version": "0.1.3",
+  "version": "0.1.6",
   "description": "google-cast-launcher",
   "main": "build/index.js",
   "scripts": {
@@ -36,7 +36,10 @@
     "dotenv": "8.0.0",
     "fastify": "2.4.1",
     "lowdb": "1.0.0",
-    "puppeteer-core": "1.16.0",
-    "source-map-support": "0.5.12"
+    "mdns-js": "1.0.3",
+    "pino-pretty": "3.1.0",
+    "puppeteer-core": "1.17.0",
+    "source-map-support": "0.5.12",
+    "xvfb": "0.2.3"
   }
 }

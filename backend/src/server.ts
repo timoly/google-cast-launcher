@@ -4,12 +4,9 @@ import * as puppeteer from 'puppeteer-core'
 import { services, ServiceType, CommonServiceParameters } from './services'
 import * as dotenv from 'dotenv'
 import * as path from 'path'
+import * as mdns from 'mdns-js'
 
-dotenv.config({
-  path: process.env.PI
-    ? path.resolve(process.cwd(), '../../', '.env')
-    : path.resolve(process.cwd(), '.env')
-})
+dotenv.config({ path: path.resolve(process.cwd(), '.env') })
 
 import * as low from 'lowdb'
 import * as FileSync from 'lowdb/adapters/FileSync'
@@ -17,11 +14,10 @@ import { ViaplayChannel, ViaplayServiceParameters } from './services/viaplay'
 import { RuutuServiceParameters } from './services/ruutu'
 import { YoutubeServiceParameters } from './services/youtube'
 
-const adapter = new FileSync('service_cookies.json')
+const adapter = new FileSync('./service_cookies.json')
 const db = low(adapter)
 
 const requiredEnvParameters = {
-  TARGET_SINK: null,
   CHROME_PATH: null,
   USER_DATA_DIR: null,
   VIAPLAY_USERNAME: null,
@@ -37,7 +33,6 @@ type ServiceParameters =
   | YoutubeServiceParameters
 
 const {
-  TARGET_SINK,
   CHROME_PATH,
   USER_DATA_DIR,
   VIAPLAY_USERNAME,
@@ -58,10 +53,33 @@ const {
   requiredEnvParameters as any
 )
 
-async function serviceHandler (
+const parseTxt = (items: string[]): { [index: string]: string } =>
+  items.reduce((acc, cur) => {
+    const split = cur.split('=')
+    return { ...acc, [split[0]]: split[1] }
+  }, {})
+
+const scanForAvailableDevices = () => {
+  let devices = {}
+  return new Promise(resolve => {
+    var browser = mdns.createBrowser(mdns.tcp('googlecast'))
+    browser.on('ready', function onReady () {
+      browser.discover()
+    })
+    browser.on('update', function onUpdate (data: any) {
+      const txt = parseTxt(data.txt || [])
+      devices = { ...devices, [txt.fn]: true }
+    })
+
+    setTimeout(() => resolve(Object.keys(devices)), 2500)
+  })
+}
+
+function serviceHandler (
   commonServiceParameters: CommonServiceParameters,
   serviceParameters: ServiceParameters
 ) {
+  commonServiceParameters.log.info('serviceHandler', serviceParameters.type)
   switch (serviceParameters.type) {
     case 'ruutu':
       return services.ruutu.start({
@@ -83,12 +101,14 @@ async function serviceHandler (
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function cast (
+  targetDevice: string,
   serviceParameters: ServiceParameters,
   log: Fastify.Logger
 ) {
   let browser
   let client
   try {
+    log.info('launching puppeteer')
     browser = await puppeteer.launch({
       headless: false,
       executablePath: CHROME_PATH,
@@ -105,23 +125,21 @@ async function cast (
         '--load-media-router-component-extension=1',
         '--flag-switches-end',
         '--disk-cache-dir=./',
-        '--allow-running-insecure-content'
+        '--allow-running-insecure-content',
+        '--no-sandbox',
+        '--disable-dev-shm-usage'
       ],
       userDataDir: USER_DATA_DIR,
       ignoreDefaultArgs: true
     })
     const page = await browser.newPage()
-
     page.on('console', consoleObj => log.info(consoleObj.text()))
     const list = await CDP.List()
     const tab = list.find(i => i.url === 'about:blank' && i.type === 'page')
     if (!tab) {
       throw new Error('could not activate tab control')
     }
-
     client = await CDP({ target: tab.id })
-
-    CDP.Activate
     await CDP.Activate({ id: tab.id })
     const { Cast } = client
     await Cast.enable()
@@ -135,33 +153,37 @@ async function cast (
       })
 
       Cast.sinksUpdated(async sinks => {
-        if (castingStarted) {
-          return
-        }
-        log.info('sinks:', sinks)
-        const sinkName = sinks.sinkNames.find(sink => sink === TARGET_SINK)
-        if (!sinkName && count > 5) {
-          return reject(new Error('requested sink not found'))
-        }
-        if (sinkName) {
-          castingStarted = true
-          await Cast.setSinkToUse({ sinkName })
-          try {
+        try {
+          if (castingStarted) {
+            return
+          }
+          ++count
+          log.info('sinks:', sinks, count)
+          const sinkName = sinks.sinkNames.find(sink => sink === targetDevice)
+          if (!sinkName && count === 10) {
+            return reject(new Error('requested sink not found'))
+          }
+          if (sinkName) {
+            castingStarted = true
+            await Cast.setSinkToUse({ sinkName })
             await serviceHandler(
               {
                 page,
                 Cast,
-                sinkName: TARGET_SINK,
+                sinkName: targetDevice,
                 db,
                 log,
                 type: serviceParameters.type
               },
               serviceParameters
-            )
-          } catch (error) {
-            reject(error)
+            ).catch(reject)
+            resolve()
           }
-          resolve()
+        } catch (error) {
+          await page.screenshot({
+            path: `./error-${Date.now()}.png`
+          })
+          reject(error)
         }
       })
     })
@@ -181,20 +203,16 @@ async function cast (
 export function createServer (opts?: Fastify.ServerOptions) {
   const fastify = Fastify(opts)
 
-  fastify.get('/', async (_request, _reply) => {
-    return {
-      viaplay: {
-        channels: services.viaplay.channels
-      }
-    }
+  fastify.get('/', async (_request, reply) => {
+    return reply.send({
+      services: [{ type: 'viaplay', channels: services.viaplay.channels }],
+      devices: await scanForAvailableDevices()
+    })
   })
 
   /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
   fastify.post('/', async (request, reply) => {
     fastify.log.info(request.query)
-    // cast("ruutu", {url: "https://www.ruutu.fi/video/3257790"})
-    // cast("youtube", {url: "https://www.youtube.com/watch?v=LOUgsAmD51s"})
-    // 'CNN International'
     try {
       const service = ((): ServiceType | null => {
         switch (request.query.service) {
@@ -238,7 +256,14 @@ export function createServer (opts?: Fastify.ServerOptions) {
         }
       })()
 
-      await cast(serviceParameters, fastify.log)
+      const targetDevice = request.query.targetDevice as string
+      if (!targetDevice) {
+        return reply
+          .status(400)
+          .send({ error: 'missing targetDevice parameter' })
+      }
+
+      await cast(targetDevice, serviceParameters, fastify.log)
       reply.status(200).send()
     } catch (error) {
       fastify.log.error(error, 'channel start error')

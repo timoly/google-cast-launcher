@@ -1,9 +1,0 @@
-{
-  "createdWith": "3.1.1",
-  "boilerplate": "ignite-bowser",
-  "examples": "classic",
-  "navigation": "react-navigation",
-  "askToOverwrite": true,
-  "generators": {},
-  "boilerplateVersion": "4.4.1"
-}

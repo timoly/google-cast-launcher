@@ -32,12 +32,12 @@ export interface ViaplayServiceParameters {
 
 export const start = async function ({
   page,
-  Cast,
   username,
   password,
-  sinkName,
   channel,
   db,
+  Cast,
+  sinkName,
   type,
   log
 }: ViaplayServiceParameters & CommonServiceParameters) {
@@ -49,6 +49,7 @@ export const start = async function ({
   if (initialCookies) {
     await page.setCookie(...initialCookies)
   }
+  // new Promise(resolve => setTimeout(resolve, 5000))
   await page.goto('https://viaplay.fi/kanavat')
 
   if (
@@ -66,18 +67,18 @@ export const start = async function ({
   ) {
     log.info('logging in to viaplay')
     const loginBtn = '.Navigation-right-1Ki5u'
-    await page.waitForSelector(loginBtn, { visible: true })
+    await page.waitForSelector(loginBtn, { visible: true, timeout: 5000 })
     await page.click(loginBtn)
-    await new Promise(resolve => {
-      setTimeout(resolve, 1000)
+
+    const usernameEl = 'input[data-testhook="login-username"]'
+    await page.waitForSelector(`${usernameEl}:not([disabled])`, {
+      visible: true,
+      timeout: 5000
     })
-    await page.screenshot({ path: './login.png' })
-    const usernameEl = 'input[name="username"]'
-    await page.waitForSelector(usernameEl, { visible: true })
     await page.type(usernameEl, username)
     await page.type('input[name="password"]', password)
     await page.click('input[type="submit"]')
-    await page.waitForNavigation({ waitUntil: 'networkidle0' })
+    await page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 10000 })
   }
 
   const cookies = await page.cookies()
@@ -86,6 +87,7 @@ export const start = async function ({
   const carouselEl = '.Carousel-inner-gyO8I'
   await page.waitForSelector(carouselEl, { visible: true })
 
+  log.info('loading viaplay channel list')
   await page.evaluate(
     ({ el, channelCount }) => {
       return new Promise((resolve, reject) => {
@@ -99,9 +101,8 @@ export const start = async function ({
           }
         }, 500)
 
-        setTimeout(() => {
+        setTimeout(async () => {
           clearInterval(intervalId)
-          page.screenshot({ path: './channels.png' })
           reject(new Error('unable to load full channel list'))
         }, 5000)
       })
@@ -109,39 +110,71 @@ export const start = async function ({
     { el: carouselEl, channelCount: channels.length }
   )
 
+  log.info(`play channel ${channel}`)
   await page.evaluate(
     ({ el, channelIndex }) => {
-      Array.from(document.querySelectorAll(el))
-        [channelIndex].querySelector('div[data-testhook="play-button"]')
-        .click()
+      const $channelElement = Array.from(document.querySelectorAll(el))[
+        channelIndex
+      ]
+      const $playButton = $channelElement.querySelector(
+        'div[data-testhook="play-button"]'
+      )
+      $playButton.click()
     },
     { el: carouselEl, channelIndex }
   )
-  await new Promise(resolve => {
-    setTimeout(resolve, 1000)
-  })
-  await page.screenshot({ path: './video.png' })
-  await page.waitForSelector('video', { visible: true })
 
+  log.info(`activating chromecast`)
   await Cast.startTabMirroring({ sinkName })
+  await page.waitForSelector('video', { visible: true })
+  await page.waitForSelector('.chromecast-connected', { visible: true })
+  return new Promise(resolve => setTimeout(resolve, 5000))
 
-  await page.evaluate(() => {
-    return new Promise((resolve, reject) => {
-      const intervalId = setInterval(() => {
-        const chromeCastTextEl = document.querySelector('.chromecast-text')
-        if (
-          chromeCastTextEl &&
-          chromeCastTextEl.textContent &&
-          chromeCastTextEl.textContent.includes('Connected')
-        ) {
-          clearInterval(intervalId)
-          resolve()
-        }
-      }, 200)
+  // await new Promise(async (resolve, reject) => {
+  //   let counter = 0
+  //   const click = async () => {
+  //     try {
+  //       await page.mouse.click(0, 0)
+  //       const $chromecastButton = '.chromecast-inactive'
+  //       await page.waitForSelector($chromecastButton, {
+  //         visible: true,
+  //         timeout: 1000
+  //       })
+  //       await page.click($chromecastButton)
+  //       console.log('button found')
+  //       resolve()
+  //     } catch (error) {
+  //       ++counter
+  //       console.log('retry time', counter)
+  //       if (counter > 10) {
+  //         return reject(new Error('unable to activate chromecast'))
+  //       }
+  //       click()
+  //     }
+  //   }
+  //   click()
+  // })
 
-      setTimeout(reject, 7500)
-    })
-  })
+  // const chromeCastTextSelector = '.chromecast-text'
+  // await page.evaluate(chromeCastTextSelector => {
+  //   console.log("hmm", chromeCastTextSelector)
+  //   return new Promise((resolve, reject) => {
+  //     const intervalId = setInterval(() => {
+  //       const chromeCastTextEl = document.querySelector(chromeCastTextSelector)
+  //       if (
+  //         chromeCastTextEl &&
+  //         chromeCastTextEl.textContent &&
+  //         chromeCastTextEl.textContent.includes('Connected')
+  //       ) {
+  //         clearInterval(intervalId)
+  //         resolve()
+  //       }
+  //     }, 200)
 
-  return new Promise(resolve => setTimeout(resolve, 2000))
+  //     setTimeout(() => {
+  //       clearInterval(intervalId)
+  //       reject()
+  //     }, 5000)
+  //   })
+  // }, chromeCastTextSelector)
 }
