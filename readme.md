@@ -1,3 +1,6 @@
+#trello backlog
+https://trello.com/b/pk8mzi1N/google-cast-launcher
+
 # google cast launcher  (proof of concept)
 - repository: https://github.com/timoly/google-cast-launcher.git
 

@@ -16,6 +16,7 @@ import { ViaplayChannel, ViaplayServiceParameters } from './services/viaplay'
 import { RuutuServiceParameters } from './services/ruutu'
 import { YoutubeServiceParameters } from './services/youtube'
 import { ServerResponse } from 'http'
+import { transcode } from './ffmpeg'
 
 const adapter = new FileSync('./service_cookies.json')
 const db = low(adapter)
@@ -231,12 +232,26 @@ export function createServer (opts?: Fastify.ServerOptions) {
   fastify.post('/hls', async (_request, reply) => {
     const devices = await scanForAvailableDevices()
     const device = devices['Living Room TV']
-    console.log('d', device)
-    startCast(
-      device.host,
-      device.port,
-      'http://192.168.1.249:3000/hls/hls.m3u8'
-    )
+    console.log('device', device)
+    try {
+      transcode({
+        streamUrl:
+          'http://localhost:9271/stream/direct?client=AAAA&channel=2:130000:0:17:3291',
+        log: fastify.log,
+        onStart: () => {
+          startCast({
+            host: device.host,
+            port: device.port,
+            streamUrl: 'http://192.168.1.249:3000/hls/hls.m3u8',
+            log: fastify.log
+          })
+        }
+      })
+    } catch (error) {
+      fastify.log.error(error, 'tv channel start error')
+      reply.status(500).send({ error: error.message })
+    }
+
     return reply.send()
   })
 

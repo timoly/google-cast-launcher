@@ -3,12 +3,17 @@ import { Logger } from 'fastify'
 
 const { Client, DefaultMediaReceiver } = cast
 
-export const startCast = (
-  host: string,
-  port: number,
-  streamUrl: string,
+export const startCast = ({
+  host,
+  port,
+  streamUrl,
+  log
+}: {
+  host: string
+  port: number
+  streamUrl: string
   log: Logger
-) => {
+}) => {
   const client = new Client()
 
   client.connect({ host, port }, () => {
