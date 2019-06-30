@@ -5,6 +5,8 @@ import { services, ServiceType, CommonServiceParameters } from './services'
 import * as dotenv from 'dotenv'
 import * as path from 'path'
 import * as mdns from 'mdns-js'
+import { startCast } from './cast'
+import * as fastifyStatic from 'fastify-static'
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') })
 
@@ -13,6 +15,7 @@ import * as FileSync from 'lowdb/adapters/FileSync'
 import { ViaplayChannel, ViaplayServiceParameters } from './services/viaplay'
 import { RuutuServiceParameters } from './services/ruutu'
 import { YoutubeServiceParameters } from './services/youtube'
+import { ServerResponse } from 'http'
 
 const adapter = new FileSync('./service_cookies.json')
 const db = low(adapter)
@@ -68,10 +71,17 @@ const scanForAvailableDevices = () => {
     })
     browser.on('update', function onUpdate (data: any) {
       const txt = parseTxt(data.txt || [])
-      devices = { ...devices, [txt.fn]: true }
+      devices = {
+        ...devices,
+        [txt.fn]: {
+          name: txt.fn,
+          host: data.addresses[0],
+          port: data.port
+        }
+      }
     })
 
-    setTimeout(() => resolve(Object.keys(devices)), 2500)
+    setTimeout(() => resolve(devices), 2500)
   })
 }
 
@@ -203,11 +213,31 @@ async function cast (
 export function createServer (opts?: Fastify.ServerOptions) {
   const fastify = Fastify(opts)
 
+  fastify.register(fastifyStatic, {
+    root: path.join(__dirname, '../', 'hls'),
+    prefix: '/hls/',
+    setHeaders: (res: ServerResponse) => {
+      res.setHeader('Access-Control-Allow-Origin', '*')
+    }
+  })
+
   fastify.get('/', async (_request, reply) => {
     return reply.send({
       services: [{ type: 'viaplay', channels: services.viaplay.channels }],
       devices: await scanForAvailableDevices()
     })
+  })
+
+  fastify.post('/hls', async (_request, reply) => {
+    const devices = await scanForAvailableDevices()
+    const device = devices['Living Room TV']
+    console.log('d', device)
+    startCast(
+      device.host,
+      device.port,
+      'http://192.168.1.249:3000/hls/hls.m3u8'
+    )
+    return reply.send()
   })
 
   /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
