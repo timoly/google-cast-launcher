@@ -7,6 +7,7 @@ import * as path from 'path'
 import * as mdns from 'mdns-js'
 import { startCast } from './cast'
 import * as fastifyStatic from 'fastify-static'
+import { fetchChannels } from './tv-mosaic'
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') })
 
@@ -20,6 +21,7 @@ import { transcode } from './ffmpeg'
 
 const adapter = new FileSync('./service_cookies.json')
 const db = low(adapter)
+const hlsPath = path.join(__dirname, '../', 'hls')
 
 const requiredEnvParameters = {
   CHROME_PATH: null,
@@ -215,7 +217,7 @@ export function createServer (opts?: Fastify.ServerOptions) {
   const fastify = Fastify(opts)
 
   fastify.register(fastifyStatic, {
-    root: path.join(__dirname, '../', 'hls'),
+    root: hlsPath,
     prefix: '/hls/',
     setHeaders: (res: ServerResponse) => {
       res.setHeader('Access-Control-Allow-Origin', '*')
@@ -229,15 +231,19 @@ export function createServer (opts?: Fastify.ServerOptions) {
     })
   })
 
-  fastify.post('/hls', async (_request, reply) => {
+  fastify.post('/hls', async (request, reply) => {
     const devices = await scanForAvailableDevices()
+
+    const channels = await fetchChannels()
+    const channel = channels.find(ch => ch.title === request.query.channel)
+
     const device = devices['Living Room TV']
     console.log('device', device)
     try {
       transcode({
-        streamUrl:
-          'http://localhost:9271/stream/direct?client=AAAA&channel=2:130000:0:17:3291',
+        streamUrl: channel.url,
         log: fastify.log,
+        hlsPath,
         onStart: () => {
           startCast({
             host: device.host,

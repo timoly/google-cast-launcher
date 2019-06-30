@@ -21,6 +21,7 @@
     "@types/lowdb": "1.0.9",
     "@types/node": "12.0.2",
     "@types/puppeteer-core": "1.9.0",
+    "@types/request": "2.48.1",
     "@types/yargs-parser": "13.0.0",
     "@typescript-eslint/eslint-plugin": "1.9.0",
     "@typescript-eslint/parser": "1.9.0",
@@ -40,9 +41,11 @@
     "fastify-static": "2.5.0",
     "fluent-ffmpeg": "2.1.2",
     "lowdb": "1.0.0",
+    "m3u8": "0.0.8",
     "mdns-js": "1.0.3",
     "pino-pretty": "3.1.0",
     "puppeteer-core": "1.17.0",
+    "request": "2.88.0",
     "source-map-support": "0.5.12",
     "xvfb": "0.2.3"
   }
