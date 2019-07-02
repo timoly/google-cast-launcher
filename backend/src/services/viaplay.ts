@@ -1,4 +1,7 @@
-import { CommonServiceParameters } from '../services'
+import {
+  CommonServiceParameters,
+  PuppeteerServiceParameters
+} from '../services'
 
 const channelMapping = {
   'YLE 1': {},
@@ -40,7 +43,9 @@ export const start = async function ({
   sinkName,
   type,
   log
-}: ViaplayServiceParameters & CommonServiceParameters) {
+}: PuppeteerServiceParameters &
+  ViaplayServiceParameters &
+  CommonServiceParameters) {
   const channelIndex = channels.findIndex(ch => ch === channel)
   if (channelIndex === -1) {
     throw new Error(`channel ${channel} is not supported`)

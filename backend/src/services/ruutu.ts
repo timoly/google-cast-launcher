@@ -1,4 +1,7 @@
-import { CommonServiceParameters } from '../services'
+import {
+  CommonServiceParameters,
+  PuppeteerServiceParameters
+} from '../services'
 
 export interface RuutuServiceParameters {
   url: string
@@ -8,7 +11,9 @@ export interface RuutuServiceParameters {
 export const start = async function ({
   page,
   url
-}: CommonServiceParameters & RuutuServiceParameters) {
+}: PuppeteerServiceParameters &
+  CommonServiceParameters &
+  RuutuServiceParameters) {
   const castButton = '.r-chromecast-button'
   const pauseButton = '.r-pause-button'
   const bannerSelector = '#sccm-opt-out-c1'

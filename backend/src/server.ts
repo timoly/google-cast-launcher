@@ -1,13 +1,17 @@
 import * as Fastify from 'fastify'
 import * as CDP from 'chrome-remote-interface'
 import * as puppeteer from 'puppeteer-core'
-import { services, ServiceType, CommonServiceParameters } from './services'
+import {
+  services,
+  ServiceType,
+  CommonServiceParameters,
+  PuppeteerServiceParameters
+} from './services'
 import * as dotenv from 'dotenv'
 import * as path from 'path'
-import * as mdns from 'mdns-js'
-import { startCast } from './cast'
+import { startCast, scanForAvailableDevices } from './cast'
 import * as fastifyStatic from 'fastify-static'
-import { fetchChannels } from './tv-mosaic'
+import { fetchChannels } from './services/mosaic-tv'
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') })
 
@@ -18,6 +22,7 @@ import { RuutuServiceParameters } from './services/ruutu'
 import { YoutubeServiceParameters } from './services/youtube'
 import { ServerResponse } from 'http'
 import { transcode } from './ffmpeg'
+import { MosaicTVServiceParameters } from './services/mosaic-tv'
 
 const adapter = new FileSync('./service_cookies.json')
 const db = low(adapter)
@@ -33,10 +38,12 @@ const requiredEnvParameters = {
 type EnvParametersKey = keyof typeof requiredEnvParameters
 type EnvParameters = { [key in EnvParametersKey]: string }
 
-type ServiceParameters =
+type PuppeteerServices =
   | ViaplayServiceParameters
   | RuutuServiceParameters
   | YoutubeServiceParameters
+
+type ServiceParameters = PuppeteerServices | MosaicTVServiceParameters
 
 const {
   CHROME_PATH,
@@ -59,38 +66,9 @@ const {
   requiredEnvParameters as any
 )
 
-const parseTxt = (items: string[]): { [index: string]: string } =>
-  items.reduce((acc, cur) => {
-    const split = cur.split('=')
-    return { ...acc, [split[0]]: split[1] }
-  }, {})
-
-const scanForAvailableDevices = () => {
-  let devices = {}
-  return new Promise(resolve => {
-    var browser = mdns.createBrowser(mdns.tcp('googlecast'))
-    browser.on('ready', function onReady () {
-      browser.discover()
-    })
-    browser.on('update', function onUpdate (data: any) {
-      const txt = parseTxt(data.txt || [])
-      devices = {
-        ...devices,
-        [txt.fn]: {
-          name: txt.fn,
-          host: data.addresses[0],
-          port: data.port
-        }
-      }
-    })
-
-    setTimeout(() => resolve(devices), 2500)
-  })
-}
-
 function serviceHandler (
-  commonServiceParameters: CommonServiceParameters,
-  serviceParameters: ServiceParameters
+  commonServiceParameters: CommonServiceParameters & PuppeteerServiceParameters,
+  serviceParameters: PuppeteerServices
 ) {
   commonServiceParameters.log.info('serviceHandler', serviceParameters.type)
   switch (serviceParameters.type) {
@@ -115,7 +93,7 @@ function serviceHandler (
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function cast (
   targetDevice: string,
-  serviceParameters: ServiceParameters,
+  serviceParameters: PuppeteerServices,
   log: Fastify.Logger
 ) {
   let browser
@@ -231,36 +209,6 @@ export function createServer (opts?: Fastify.ServerOptions) {
     })
   })
 
-  fastify.post('/hls', async (request, reply) => {
-    const devices = await scanForAvailableDevices()
-
-    const channels = await fetchChannels()
-    const channel = channels.find(ch => ch.title === request.query.channel)
-
-    const device = devices['Living Room TV']
-    console.log('device', device)
-    try {
-      transcode({
-        streamUrl: channel.url,
-        log: fastify.log,
-        hlsPath,
-        onStart: () => {
-          startCast({
-            host: device.host,
-            port: device.port,
-            streamUrl: 'http://192.168.1.249:3000/hls/hls.m3u8',
-            log: fastify.log
-          })
-        }
-      })
-    } catch (error) {
-      fastify.log.error(error, 'tv channel start error')
-      reply.status(500).send({ error: error.message })
-    }
-
-    return reply.send()
-  })
-
   /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
   fastify.post('/', async (request, reply) => {
     fastify.log.info(request.query)
@@ -270,6 +218,7 @@ export function createServer (opts?: Fastify.ServerOptions) {
           case 'ruutu':
           case 'youtube':
           case 'viaplay':
+          case 'mosaicTV':
             return request.query.service
           default:
             return null
@@ -284,6 +233,20 @@ export function createServer (opts?: Fastify.ServerOptions) {
 
       const serviceParameters = ((): ServiceParameters => {
         switch (service) {
+          case 'mosaicTV':
+            return ((): MosaicTVServiceParameters => {
+              const channel = services.mosaicTV.mosaicTvChannels.some(
+                channel => request.query.channel === channel
+              )
+              if (!channel) {
+                throw new Error(`unsupported channel: ${request.query.channel}`)
+              }
+              return {
+                channelName: request.query.channel,
+                type: 'mosaicTV',
+                hlsPath
+              }
+            })()
           case 'viaplay':
             return ((): ViaplayServiceParameters => {
               const channel = services.viaplay.channels.some(
@@ -314,7 +277,21 @@ export function createServer (opts?: Fastify.ServerOptions) {
           .send({ error: 'missing targetDevice parameter' })
       }
 
-      await cast(targetDevice, serviceParameters, fastify.log)
+      await (async () => {
+        switch (serviceParameters.type) {
+          case 'ruutu':
+          case 'viaplay':
+          case 'youtube':
+            return cast(targetDevice, serviceParameters, fastify.log)
+          case 'mosaicTV':
+            return services.mosaicTV.start({
+              log: fastify.log,
+              sinkName: targetDevice,
+              ...serviceParameters
+            })
+        }
+      })()
+
       reply.status(200).send()
     } catch (error) {
       fastify.log.error(error, 'channel start error')
