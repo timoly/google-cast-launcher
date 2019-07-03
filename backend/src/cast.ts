@@ -28,13 +28,18 @@ export const scanForAvailableDevices = (): Promise<Devices> => {
     })
     browser.on('update', function onUpdate (data: any) {
       const txt = parseTxt(data.txt || [])
-      devices = {
-        ...devices,
-        [txt.fn]: {
-          name: txt.fn,
-          host: data.addresses[0],
-          port: data.port
-        }
+      switch (txt.md) {
+        case 'Chromecast Ultra':
+        case 'Chromecast':
+          devices = {
+            ...devices,
+            [txt.fn]: {
+              name: txt.fn,
+              host: data.addresses[0],
+              port: data.port
+            }
+          }
+          return
       }
     })
 

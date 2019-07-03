@@ -11,7 +11,27 @@ export interface MosaicTVServiceParameters {
   hlsPath: string
 }
 
-export const mosaicTvChannels = ['MTV3 HD', 'MTV HD', 'Liv HD']
+export const mosaicTvChannels = [
+  'MTV3 HD',
+  'MTV HD',
+  'Liv HD',
+  'FOX HD',
+  'Alfa TV HD',
+  'AVA HD',
+  'Frii HD',
+  'Hero HD',
+  'Jim HD',
+  'Kutonen HD',
+  'Liv HD',
+  'National Geographic HD',
+  'Nelonen HD',
+  'Sub HD',
+  'TLC HD',
+  'TV5 HD',
+  'Yle Teema & Fem HD',
+  'Yle TV1 HD',
+  'Yle TV2 HD'
+]
 
 const channelApiUrl =
   'http://localhost:9270/mobile/?command=get_playlist_m3u&client=AAAA'

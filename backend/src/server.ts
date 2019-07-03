@@ -9,9 +9,8 @@ import {
 } from './services'
 import * as dotenv from 'dotenv'
 import * as path from 'path'
-import { startCast, scanForAvailableDevices } from './cast'
+import { scanForAvailableDevices } from './cast'
 import * as fastifyStatic from 'fastify-static'
-import { fetchChannels } from './services/mosaic-tv'
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') })
 
@@ -21,7 +20,6 @@ import { ViaplayChannel, ViaplayServiceParameters } from './services/viaplay'
 import { RuutuServiceParameters } from './services/ruutu'
 import { YoutubeServiceParameters } from './services/youtube'
 import { ServerResponse } from 'http'
-import { transcode } from './ffmpeg'
 import { MosaicTVServiceParameters } from './services/mosaic-tv'
 
 const adapter = new FileSync('./service_cookies.json')
@@ -203,9 +201,13 @@ export function createServer (opts?: Fastify.ServerOptions) {
   })
 
   fastify.get('/', async (_request, reply) => {
+    const devices = await scanForAvailableDevices()
     return reply.send({
-      services: [{ type: 'viaplay', channels: services.viaplay.channels }],
-      devices: await scanForAvailableDevices()
+      services: [
+        { type: 'viaplay', channels: services.viaplay.channels },
+        { type: 'mosaicTV', channels: services.mosaicTV.mosaicTvChannels }
+      ],
+      devices: Object.values(devices).map(d => d.name)
     })
   })
 
