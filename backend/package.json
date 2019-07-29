@@ -20,6 +20,7 @@
     "@types/fluent-ffmpeg": "2.1.10",
     "@types/fs-extra": "8.0.0",
     "@types/lowdb": "1.0.9",
+    "@types/luxon": "1.15.2",
     "@types/node": "12.0.12",
     "@types/puppeteer-core": "1.9.0",
     "@types/request": "2.48.1",
@@ -43,12 +44,14 @@
     "fluent-ffmpeg": "2.1.2",
     "fs-extra": "8.1.0",
     "lowdb": "1.0.0",
+    "luxon": "1.17.2",
     "m3u8": "0.0.8",
     "mdns-js": "1.0.3",
     "pino-pretty": "3.2.0",
     "puppeteer-core": "1.18.1",
     "request": "2.88.0",
     "source-map-support": "0.5.12",
+    "xml-js": "1.6.11",
     "xvfb": "0.2.3"
   }
 }

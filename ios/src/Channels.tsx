@@ -148,11 +148,14 @@ export const Channels = (props: {}) => {
       <View style={{ height: '90%' }}>
         <SectionList
           style={styles.container}
-          renderItem={({ item, index, section }) =>
-            <Button disabled={!targetDevice || serviceStartup.type === 'loading' && serviceStartup.channel === item} title={item} key={index} onPress={() => {
+          renderItem={({ item, index, section }) => {
+            const channelEpg = apiResponse.data.epg.find(epgItem => epgItem.channel === item)
+            return <><Button disabled={!targetDevice || serviceStartup.type === 'loading' && serviceStartup.channel === item} title={item} key={index} onPress={() => {
               loadChannel(section.title, targetDevice!, item, setServiceStartup)
-            }}
-            />}
+            }}/>
+            {channelEpg && <Text>{channelEpg.now.name}</Text> }
+            </>}
+          }
           renderSectionHeader={({ section: { title } }) => (
             <Text style={{ fontWeight: 'bold' }}>{title}</Text>
           )}

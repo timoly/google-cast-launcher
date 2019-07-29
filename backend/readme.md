@@ -16,6 +16,7 @@ https://elisa.fi/asiakaspalvelu/aihe/kaapeli-tv/ohje/kanavapaikat/
 ## api
 http://116.203.28.81/download/tvmosaic/tvmosaic_remote_api.pdf
 playlist api: http://localhost:9270/mobile/?command=get_playlist_m3u&client=AAAA
+epg: api: http://localhost:9270/mobile/?command=get_xmltv_epg&days=1
 
 ##ffmpeg live transcode
 ffmpeg -v verbose \

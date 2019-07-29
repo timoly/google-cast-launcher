@@ -20,7 +20,7 @@ import { ViaplayChannel, ViaplayServiceParameters } from './services/viaplay'
 import { RuutuServiceParameters } from './services/ruutu'
 import { YoutubeServiceParameters } from './services/youtube'
 import { ServerResponse } from 'http'
-import { MosaicTVServiceParameters } from './services/mosaic-tv'
+import { MosaicTVServiceParameters, fetchEpg } from './services/mosaic-tv'
 
 const adapter = new FileSync('./service_cookies.json')
 const db = low(adapter)
@@ -202,12 +202,14 @@ export function createServer (opts?: Fastify.ServerOptions) {
 
   fastify.get('/', async (_request, reply) => {
     const devices = await scanForAvailableDevices()
+    const epg = await fetchEpg()
     return reply.send({
       services: [
         { type: 'viaplay', channels: services.viaplay.channels },
         { type: 'mosaicTV', channels: services.mosaicTV.mosaicTvChannels }
       ],
-      devices: Object.values(devices).map(d => d.name)
+      devices: Object.values(devices).map(d => d.name),
+      epg
     })
   })
 
