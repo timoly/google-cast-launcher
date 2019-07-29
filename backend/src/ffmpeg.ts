@@ -25,13 +25,13 @@ export const transcode = ({
       '-profile:v high',
       '-level:v 4.1',
       '-maxrate 5000k',
-      '-bufsize 1835k',
+      '-bufsize 5000k',
       '-pix_fmt yuv420p',
       '-flags',
       '-global_header',
-      '-hls_time 5',
-      '-hls_list_size 3',
-      '-hls_wrap 3',
+      // '-hls_time 5',
+      // '-hls_list_size 3',
+      // '-hls_wrap 3',
       '-hls_flags delete_segments+append_list+omit_endlist',
       '-sn'
     ])
