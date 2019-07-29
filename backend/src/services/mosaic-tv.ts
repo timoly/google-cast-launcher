@@ -2,8 +2,13 @@ import { CommonServiceParameters } from '../services'
 import * as m3u8 from 'm3u8'
 import * as request from 'request'
 import { flatMap } from '../flatMap'
+import * as fs from 'fs-extra'
 import { transcode } from '../ffmpeg'
 import { startCast, scanForAvailableDevices } from '../cast'
+import * as path from "path"
+import * as util from "util"
+import { Logger } from 'fastify';
+const copyFile = util.promisify(fs.copyFile)
 
 export interface MosaicTVServiceParameters {
   channelName: string
@@ -41,6 +46,23 @@ interface Channel {
   url: string
 }
 
+type KillFfmpeg = () => void
+
+let ffmpegProcess: null | KillFfmpeg = null
+
+interface M3u8PlaylistItem {
+  properties: {
+    title: string
+    uri: string
+  }
+}
+
+interface M3u8 {
+  items: {
+    PlaylistItem: M3u8PlaylistItem[]
+  }
+}
+
 export const fetchChannels = async (): Promise<Channel[]> => {
   return new Promise((resolve, reject) => {
     const parser = m3u8.createStream()
@@ -50,7 +72,7 @@ export const fetchChannels = async (): Promise<Channel[]> => {
       })
       .pipe(parser)
 
-    parser.on('m3u', m3u => {
+    parser.on('m3u', (m3u: M3u8) => {
       const channels = flatMap(m3u.items.PlaylistItem, item => {
         return mosaicTvChannels.includes(item.properties.title)
           ? [
@@ -65,6 +87,15 @@ export const fetchChannels = async (): Promise<Channel[]> => {
       resolve(channels)
     })
   })
+}
+
+const copyLoadingIndicatorFiles = (log: Logger) => {
+  log.info("copyLoadingIndicatorFiles")
+  const getPath = (dir: string) => path.resolve(__dirname, '../../', dir)
+  const filesToCopy = ['hls.m3u8', 'hls0.ts', 'hls1.ts', 'hls2.ts']
+  return Promise.all([
+    filesToCopy.map(file => copyFile(getPath(`hls_loading/${file}`), getPath(`hls/${file}`)))
+  ])
 }
 
 export const start = async function ({
@@ -89,18 +120,34 @@ export const start = async function ({
     throw new Error(`sink ${sinkName} not found`)
   }
 
-  transcode({
+  if(ffmpegProcess){
+    ffmpegProcess()
+    ffmpegProcess = null
+  }
+
+  await copyLoadingIndicatorFiles(log)
+
+  startCast({
+    host: device.host,
+    port: device.port,
+    streamUrl: 'http://192.168.1.249:3000/hls/hls.m3u8',
+    log,
+    streamTitle: channelName
+  })
+
+  ffmpegProcess = transcode({
     streamUrl: channel.url,
     log,
     hlsPath,
     onStart: () => {
-      startCast({
-        host: device.host,
-        port: device.port,
-        streamUrl: 'http://192.168.1.249:3000/hls/hls.m3u8',
-        log,
-        streamTitle: channelName
-      })
+      console.log('foo')
+      // startCast({
+      //   host: device.host,
+      //   port: device.port,
+      //   streamUrl: 'http://192.168.1.249:3000/hls/hls.m3u8',
+      //   log,
+      //   streamTitle: channelName
+      // })
     }
   })
 }

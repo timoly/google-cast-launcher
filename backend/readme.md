@@ -1,4 +1,4 @@
-#requirements
+# requirements
 http://tv-mosaic.com/en/#tv_butler
 
 
@@ -18,25 +18,28 @@ http://116.203.28.81/download/tvmosaic/tvmosaic_remote_api.pdf
 playlist api: http://localhost:9270/mobile/?command=get_playlist_m3u&client=AAAA
 
 ##ffmpeg live transcode
-ffmpeg -v verbose 
--i "http://localhost:9271/stream/direct?client=AAAA&channel=2:130000:0:17:3291" 
--c:v libx264 
--c:a aac 
--strict -2 
--crf 19 
--movflags +faststart 
--profile:v high 
--level:v 4.1 
--maxrate 5000k 
--bufsize 1835k 
--pix_fmt yuv420p 
--flags 
--global_header 
--hls_time 10 
--hls_list_size 6 
--hls_wrap 10 
--sn 
+ffmpeg -v verbose \
+-i "http://localhost:9271/stream/direct?client=AAAA&channel=2:130000:0:17:3291" \
+-c:v libx264 \
+-c:a aac \
+-strict -2 \
+-crf 19 \
+-movflags +faststart \
+-profile:v high \
+-level:v 4.1 \
+-maxrate 5000k \
+-bufsize 1835k \
+-pix_fmt yuv420p \
+-flags \
+-global_header \
+-hls_time 6 \
+-hls_list_size 6 \
+-hls_wrap 10 \
+-sn \
 hls/hls.m3u8
+
+# local hls stream
+http://localhost:3000/hls/hls.m3u8
 
 ## raspberry pi
 setup: https://hackernoon.com/raspberry-pi-headless-install-462ccabd75d0
@@ -67,3 +70,6 @@ pm2 save
 
 #running manually in raspberry pi
 xvfb-run -a --server-args="-screen 0 1280x1024x16 -ac -nolisten tcp" node build/index.js
+
+#start tv mosaic
+/Library/Application Support/DVBLogic/TVMosaic/tvmosaic_server --command_line_mode

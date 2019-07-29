@@ -19,6 +19,7 @@ export const transcode = ({
       '-c:a aac',
       '-strict -2',
       '-crf 20',
+      '-vf scale=1920:1080',
       '-movflags +faststart',
       '-preset veryfast',
       '-profile:v high',
@@ -28,9 +29,10 @@ export const transcode = ({
       '-pix_fmt yuv420p',
       '-flags',
       '-global_header',
-      // '-hls_time 10',
-      // '-hls_list_size 6',
-      // '-hls_wrap 10',
+      '-hls_time 5',
+      '-hls_list_size 3',
+      '-hls_wrap 3',
+      '-hls_flags delete_segments+append_list+omit_endlist',
       '-sn'
     ])
     .on('start', start => {

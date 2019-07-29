@@ -101,7 +101,7 @@ export const startCast = ({
   })
 
   client.on('error', (err: Error) => {
-    log.info('Error: %s', err.message)
+    log.info('Error: %s', err.message, err.stack)
     client.close()
   })
 }

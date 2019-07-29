@@ -35,7 +35,7 @@ const loadChannel = async (service: string, targetDevice: string, channel: strin
   console.log('loadChannel', service, channel)
   try {
     setServiceStartup({ type: 'loading', channel })
-    const response = await fetch(`http://192.168.1.249:3000/?service=${service}&channel=${channel}&targetDevice=${targetDevice}`, {
+    const response = await fetch(`http://192.168.1.249:3000/?service=${service}&channel=${encodeURIComponent(channel)}&targetDevice=${targetDevice}`, {
       method: 'POST'
     })
     if (!response.ok) {

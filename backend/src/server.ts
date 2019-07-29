@@ -237,14 +237,15 @@ export function createServer (opts?: Fastify.ServerOptions) {
         switch (service) {
           case 'mosaicTV':
             return ((): MosaicTVServiceParameters => {
+              const reqChannel = decodeURIComponent(request.query.channel)
               const channel = services.mosaicTV.mosaicTvChannels.some(
-                channel => request.query.channel === channel
+                channel =>reqChannel  === channel
               )
               if (!channel) {
-                throw new Error(`unsupported channel: ${request.query.channel}`)
+                throw new Error(`unsupported channel: ${reqChannel}`)
               }
               return {
-                channelName: request.query.channel,
+                channelName: reqChannel,
                 type: 'mosaicTV',
                 hlsPath
               }
