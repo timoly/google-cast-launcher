@@ -254,14 +254,15 @@ export function createServer (opts?: Fastify.ServerOptions) {
             })()
           case 'viaplay':
             return ((): ViaplayServiceParameters => {
+              const reqChannel = decodeURIComponent(request.query.channel)
               const channel = services.viaplay.channels.some(
-                channel => request.query.channel === channel
+                channel => reqChannel === channel
               )
               if (!channel) {
-                throw new Error(`unsupported channel: ${request.query.channel}`)
+                throw new Error(`unsupported channel: ${reqChannel}`)
               }
               return {
-                channel: request.query.channel as ViaplayChannel,
+                channel: reqChannel as ViaplayChannel,
                 username: VIAPLAY_USERNAME,
                 password: VIAPLAY_PASSWORD,
                 type: 'viaplay'
