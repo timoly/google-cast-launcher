@@ -24,7 +24,7 @@ import { MosaicTVServiceParameters, fetchEpg } from './services/mosaic-tv'
 
 const adapter = new FileSync('./service_cookies.json')
 const db = low(adapter)
-const hlsPath = path.join(__dirname, '../', 'hls')
+const hlsPath = path.join(__dirname, '../../../', 'hls')
 
 const requiredEnvParameters = {
   CHROME_PATH: null,

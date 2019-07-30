@@ -2,7 +2,7 @@
   "name": "google-cast-launcher",
   "version": "0.1.6",
   "description": "google-cast-launcher",
-  "main": "build/index.js",
+  "main": "build/backend/src/index.js",
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "build:watch": "npm run build -- --watch --preserveWatchOutput",
@@ -11,7 +11,7 @@
     "dev": "concurrently \"npm run build:watch\" \"npm run start:watch\"",
     "lint": "eslint '{src,tests}/**/*.ts'",
     "start": "node build/index.js",
-    "start:watch": "nodemon build/index.js"
+    "start:watch": "nodemon build/backend/src/index.js"
   },
   "author": "Timo Lyytinen",
   "license": "MIT",
