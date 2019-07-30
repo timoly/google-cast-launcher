@@ -7,6 +7,11 @@
     "test": "jest",
     "lint": "eslint ."
   },
+  "eslintConfig": {
+    "env": {
+      "jest": true
+    }
+  },
   "dependencies": {
     "@react-native-community/async-storage": "1.6.1",
     "react": "16.8.6",

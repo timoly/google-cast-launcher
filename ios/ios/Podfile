@@ -1,7 +1,6 @@
 platform :ios, '9.0'
 require_relative '../node_modules/@react-native-community/cli-platform-ios/native_modules'
-target 'RnDiffApp' do
-
+target 'google-cast-launcher' do
   # Pods for RnDiffApp
   pod 'React', :path => '../node_modules/react-native/'
   pod 'React-Core', :path => '../node_modules/react-native/React'
@@ -25,15 +24,15 @@ target 'RnDiffApp' do
   pod 'DoubleConversion', :podspec => '../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec'
   pod 'glog', :podspec => '../node_modules/react-native/third-party-podspecs/glog.podspec'
   pod 'Folly', :podspec => '../node_modules/react-native/third-party-podspecs/Folly.podspec'
-  target 'RnDiffAppTests' do
+  target 'google-cast-launcherTests' do
     inherit! :search_paths
     # Pods for testing
   end
   use_native_modules!
 end
-target 'RnDiffApp-tvOS' do
+target 'google-cast-launcher-tvOS' do
   # Pods for RnDiffApp-tvOS
-  target 'RnDiffApp-tvOSTests' do
+  target 'google-cast-launcher-tvOSTests' do
     inherit! :search_paths
     # Pods for testing
   end
