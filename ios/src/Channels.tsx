@@ -145,7 +145,7 @@ export const Channels = (props: {}) => {
         }>
         {[<Picker.Item key={'empty'} label={''} value={''} />].concat(apiResponse.data.devices.map(device => <Picker.Item key={device} label={device} value={device} />))}
       </Picker>
-      <View style={{ height: '90%' }}>
+      <View style={{ height: '100%', marginBottom: 5, marginTop: -44 }}>
         <SectionList
           style={styles.container}
           renderItem={({ item, index, section }) => {
