@@ -44,7 +44,7 @@
     "fluent-ffmpeg": "2.1.2",
     "fs-extra": "8.1.0",
     "lowdb": "1.0.0",
-    "luxon": "1.17.2",
+    "luxon": "1.28.1",
     "m3u8": "0.0.8",
     "mdns-js": "1.0.3",
     "pino-pretty": "3.2.0",
